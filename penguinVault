@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Vault Pro</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <style>
+        :root { --blue: #007AFF; --purple: #AF52DE; --orange: #FF9500; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, sans-serif; background: #F2F2F7; margin: 0; padding: env(safe-area-inset-top) 16px 120px 16px; }
+        .total-card { text-align: center; padding: 30px 0; }
+        .total-amount { font-size: 44px; font-weight: 800; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+        .card { background: #FFF; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }
+        .row { padding: 18px; display: flex; justify-content: space-between; border-bottom: 1px solid #F2F2F7; font-weight: 600; }
+        /* 增加按鈕的實體感，確保 iOS 判定為可點擊元件 */
+        .click-area {
+            width: 100%; padding: 22px; text-align: center; 
+            font-weight: 800; color: var(--blue); background: #f9f9f9;
+            cursor: pointer; border: none; font-size: 16px;
+            display: block; outline: none;
+        }
+        #pop { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); z-index: 1000000; align-items: center; justify-content: center; 
+        }
+        .pop-box { background: #FFF; width: 90%; border-radius: 24px; padding: 24px; }
+        input { width: 100%; padding: 15px; margin: 10px 0; border-radius: 12px; border: 1px solid #DDD; font-size: 18px; }
+        .btns { display: flex; gap: 10px; margin-top: 15px; }
+        .btns div { flex: 1; padding: 16px; border-radius: 12px; text-align: center; font-weight: 700; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="total-card">
+        <div style="font-size:14px; color:#888">預估總資產 (TWD)</div>
+        <div id="total" class="total-amount">$0</div>
+    </div>
+
+    <div class="section" style="color:var(--blue)">
+        <div class="section-title">銀行活存</div>
+        <div class="card">
+            <div id="list-0"></div>
+            <button class="click-area" onclick="openP(0)">+ 新增銀行項目</button>
+        </div>
+    </div>
+
+    <div class="section" style="color:var(--purple)">
+        <div class="section-title">基金資產</div>
+        <div class="card">
+            <div id="list-1"></div>
+            <button class="click-area" style="color:var(--purple)" onclick="openP(1)">+ 新增基金項目</button>
+        </div>
+    </div>
+
+    <div class="section" style="color:var(--orange)">
+        <div class="section-title">股票資產</div>
+        <div class="card">
+            <div id="list-2"></div>
+            <button class="click-area" style="color:var(--orange)" onclick="openP(2)">+ 新增股票項目</button>
+        </div>
+    </div>
+
+    <div id="pop">
+        <div class="pop-box">
+            <h3 style="margin:0 0 15px 0; text-align:center">新增項目</h3>
+            <input type="text" id="n" placeholder="名稱">
+            <input type="number" id="p" placeholder="金額 / 現價" inputmode="decimal">
+            <div id="s-fields" style="display:none">
+                <input type="number" id="q" placeholder="持股數" inputmode="decimal">
+                <input type="number" id="c" placeholder="成本" inputmode="decimal">
+                <div style="font-size:14px; padding:10px 0"><input type="checkbox" id="u"> 美股計價 (x32.5)</div>
+            </div>
+            <div class="btns">
+                <div style="background:#EEE" onclick="closeP()">取消</div>
+                <div style="background:var(--blue); color:#FFF" onclick="saveP()">儲存</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    var db = [];
+    // 🔍 核心修復：攔截儲存空間錯誤
+    try {
+        db = JSON.parse(localStorage.getItem('vault_v_final')) || [];
+    } catch (e) {
+        alert("儲存空間受限！請務必將此網頁『加入主畫面』後再使用。");
+    }
+
+    function render() {
+        var g = 0;
+        [0,1,2].forEach(function(t) {
+            var html = '';
+            var sub = 0;
+            db.filter(function(i){ return i.t === t }).forEach(function(item) {
+                var v = item.t === 2 ? (item.p * item.q) : item.p;
+                if(item.u) v *= 32.5;
+                sub += v;
+                html += '<div class="row"><span>'+item.n+'</span><span>$'+Math.round(v).toLocaleString()+'</span></div>';
+            });
+            g += sub;
+            var listDiv = document.getElementById('list-'+t);
+            if(listDiv) listDiv.innerHTML = html;
+        });
+        document.getElementById('total').innerText = '$' + Math.round(g).toLocaleString();
+        try {
+            localStorage.setItem('vault_v_final', JSON.stringify(db));
+        } catch (e) {}
+    }
+
+    function openP(t) {
+        window.curT = t;
+        document.getElementById('s-fields').style.display = (t === 2 ? 'block' : 'none');
+        document.getElementById('n').value = '';
+        document.getElementById('p').value = '';
+        document.getElementById('q').value = '';
+        document.getElementById('c').value = '';
+        document.getElementById('u').checked = false;
+        document.getElementById('pop').style.display = 'flex';
+    }
+
+    function closeP() { document.getElementById('pop').style.display = 'none'; }
+
+    function saveP() {
+        var n = document.getElementById('n').value;
+        if(!n) return;
+        db.push({
+            t: window.curT, 
+            n: n, 
+            p: parseFloat(document.getElementById('p').value) || 0,
+            q: parseFloat(document.getElementById('q').value) || 0,
+            c: parseFloat(document.getElementById('c').value) || 0,
+            u: document.getElementById('u').checked
+        });
+        render(); closeP();
+    }
+
+    // 確保頁面渲染
+    render();
+</script>
+</body>
+</html>
